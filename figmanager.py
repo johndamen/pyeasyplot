@@ -3,6 +3,9 @@ import numpy as np
 
 
 class FigureManager(object):
+    """
+    object to simplify editing figure settings
+    """
 
     def __init__(self, fig):
         self.fig = fig
@@ -11,6 +14,9 @@ class FigureManager(object):
         self.ax_settings = dict()
 
     def points2pos(self, pnt):
+        """
+        convert ax._positions._points to a tuple of (x, y, w, h)
+        """
         x1, y1, x2, y2 = tuple(pnt.flatten())
         return [x1, y1, x2-x1, y2-y1]
 
@@ -32,6 +38,12 @@ class FigureManager(object):
         return [self.points2pos(a._position._points) for a in self.get_axes()]
 
     def format_axes(self, i, reset=False, **settings):
+        """
+        apply settings to axes object
+        :param i: index of the axes
+        :param reset: update existing settings or reset all to defaults
+        :param settings: settings to apply
+        """
         if i not in self.ax_settings:
             self.ax_settings[i] = dict()
         if reset:
@@ -43,10 +55,18 @@ class FigureManager(object):
         axes = self.get_axes()
 
         for k, v in settings.items():
-            setter = getattr(axes[i], 'set_{}'.format(k))
-            setter(v)
+            try:
+                setter = getattr(axes[i], 'set_{}'.format(k))
+            except AttributeError:
+                raise ValueError('{} not a valid setting name'.format(k))
+            else:
+                setter(v)
 
     def set_style(self, s):
+        """
+        apply style and recreate axes
+        :param s: style name from plt.style.available
+        """
         positions = self.get_axpositions()
         self.fig.clear()
         plt.style.use(s)
@@ -59,6 +79,13 @@ class FigureManager(object):
 if __name__ == '__main__':
     fig = plt.figure()
     figman = FigureManager(fig)
-    figman.format_axes(0, xlim=(0, 10), ylim=(5, 6), yticks=np.linspace(5, 6, 6), ylabel='y', xlabel='x', xticks=np.arange(0, 11, 2), title='test')
+    figman.format_axes(0,
+                       xlim=(0, 10),
+                       ylim=(5, 6),
+                       yticks=np.linspace(5, 6, 6),
+                       ylabel='y',
+                       xlabel='x',
+                       xticks=np.arange(0, 11, 2),
+                       title='test')
     figman.set_style('ggplot')
     plt.show()
