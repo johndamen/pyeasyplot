@@ -3,29 +3,46 @@ from collections import ChainMap
 from matplotlib import cm
 
 
-class InvalidAxes(Exception): pass
+class InvalidAxes(Exception):
+    """
+    Exception raised when an invalid data array is given for a dataset as an axis
+    """
 
 
 class Dataset(object):
+    """
+    object for handling a set of numpy arrays that together form a dataset
+    """
 
+    # a tuple specifying the number of dimensions for each subsequent array of the dataset
     DIMENSIONS = ()
+
+    # default arguments for plotting; may be used by other libraries to retrieve sensible  defaults
     PLOT_DEFAULTS = dict()
+
+    # settings that specify how the limit (min, max) of an axis is determined (see also dataset._limits)
     LIMIT_SETTINGS = dict()
+
+    # names of the axes if not specified explicitly
     DEFAULT_NAMES = ()
 
     def __init__(self, *args, names=None):
+        # store the axes as a list of numpy arrays
         axes = []
         for a in args:
             if not isinstance(a, np.ndarray):
                 a = np.array(a)
             axes.append(a)
 
+        # check the axes against this dataset type
         self.check_axes(axes)
 
         self.axes = axes
         self.names = names or self.DEFAULT_NAMES
 
+
     def plot(self, **kwargs):
+        """plot the data"""
         kwargs = ChainMap(kwargs, self.PLOT_DEFAULTS)
 
     def __getitem__(self, item):
@@ -41,41 +58,54 @@ class Dataset(object):
             raise TypeError('unknown type for indexing')
 
     def limits(self, **kwargs):
+        """calculate the limits of a dataset"""
         return self._limits(**ChainMap(kwargs, self.LIMIT_SETTINGS))
 
     def _limits(self, xunit=None, yunit=None, xmargin=None, ymargin=None):
+        """
+        calculate the limits from the given configuration arguments
+        :param xunit: if set to auto, a sensible xmin and xmax are chosen from the data
+        :param yunit: if set to auto, a sensible xmin and xmax are chosen from the data
+        :param xmargin: margin at left and right of the data to prevent values on the edge of the figure axes
+                        overruled by xunit=auto
+        :param ymargin: margin at top and bottom of the data to prevent values on the edge of the figure axes
+                        overruled by yunit=auto
+        :return: (np.array([xmin, xmax]), np.array([ymin, ymax])
+        """
         x, y = self.axes[0], self.axes[1]
         xmin, xmax, ymin, ymax = x.min(), x.max(), y.min(), y.max()
 
         if xunit is not None:
             if xunit == 'auto':
                 # get largest decimal as unit
+                # this is based on one third of the span along x
                 xunit = self.largest_decimal((xmax - xmin)*.3)
                 # move data away from edges
                 xmargin = 0.5*xunit
 
-            if xmargin is None:
-                xmargin = 0
-
             # round the limits to a unit
-            xmin, xmax = self._round_limits(xmin, xmax, xunit, margin=xmargin)
+            xmin, xmax = self._round_limits(xmin, xmax, xunit, margin=xmargin or 0)
 
         if yunit is not None:
             if yunit == 'auto':
                 # get largest decimal as unit
+                # this is based on one third of the span along y
                 yunit = self.largest_decimal((ymax - ymin)*.3)
                 # move data away from edges
                 ymargin = 0.5*yunit
 
-            if ymargin is None:
-                ymargin = 0
-
             # round the limits to a unit
-            ymin, ymax = self._round_limits(ymin, ymax, yunit, margin=ymargin)
+            ymin, ymax = self._round_limits(ymin, ymax, yunit, margin=ymargin or 0)
 
         return np.array([xmin, xmax]), np.array([ymin, ymax])
 
     def largest_decimal(self, v):
+        """
+        calculate the largest decimal number in the value
+        1.4    -> 1
+        0.351  -> 0.1
+        0.0023 -> 0.001
+        """
         return 10**np.floor(np.log10(v))
 
     def _round_limits(self, vmin, vmax, target, margin=0):
@@ -101,6 +131,11 @@ class Dataset(object):
 
     @classmethod
     def check_axes(cls, axes):
+        """
+        check all specified axes to be valid
+         - compare axes to dataset.DIMENSIONS
+         - check if all axes are numpy arrays
+        """
         if len(axes) != len(cls.DIMENSIONS):
             raise InvalidAxes('{} axes required for {}'.format(len(cls.DIMENSIONS), cls.__name__))
 
