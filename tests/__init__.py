@@ -4,8 +4,9 @@ def run():
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()
 
-    from . import datasets
+    from . import datasets, managers
     suite.addTest(load_tests(loader, datasets))
+    suite.addTest(load_tests(loader, managers))
 
     unittest.TextTestRunner().run(suite)
 
@@ -17,5 +18,4 @@ def load_tests(loader, m):
             tests = loader.loadTestsFromTestCase(v)
             suite.addTests(tests)
     return suite
-
 
