@@ -43,7 +43,8 @@ class FigureManager(object):
         self.fig.clear()
         for i in range(val):
             ax = self.fig.add_subplot(self.axrow_count(), ceil(val/self.axrow_count()), i+1)
-            self.axes.append(definers[i](ax))
+            axman = definers[i](ax)
+            self.axes.append(axman)
 
     def set_axrow_count(self, i, reset=True):
         self._axrow_count = i
@@ -123,6 +124,8 @@ class AxesManager(object):
             self.settings = settings
         else:
             self.settings.update(settings)
+        print('formatting', self)
+        print('    with', settings)
         self.apply_settings()
 
     def apply_settings(self):
@@ -135,8 +138,14 @@ class AxesManager(object):
                 setter(v)
 
     def plot(self):
+        print('plotting', self.settings)
         self.apply_settings()
+        self.ax.hold(True)
         self.layers.plot(self.ax)
+        self.ax.hold(False)
+
+    def __str__(self):
+        return '<{}.{} [{:.2f}, {:.2f}, {:.2f}, {:.2f}]>'.format(__name__, self.__class__.__name__, *self.position)
 
 
 class LayersContainer(list):

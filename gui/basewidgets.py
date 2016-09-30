@@ -12,13 +12,13 @@ class SettingWidget(QtGui.QWidget):
 
     value_changed = QtCore.pyqtSignal(object)
 
-    def __init__(self, val=None, parent=None):
+    def __init__(self, val=None, parent=None, **kwargs):
         super().__init__(parent=parent)
-        self.build()
+        self.build(**kwargs)
         if val is not None:
             self.set_value(val)
 
-    def build(self):
+    def build(self, **kwargs):
         pass
 
     def value(self):
@@ -36,20 +36,23 @@ class SettingWidget(QtGui.QWidget):
 
 class Fieldset(SettingWidget):
 
-    def __init__(self, ftype, val=(), parent=None, **fkwargs):
+    def __init__(self, ftype, val=(), parent=None, field_width=None, **fkwargs):
         self.ftype = ftype
         self.fkwargs = fkwargs
         val = tuple(val)
         self.fieldcount = len(val)
-        super().__init__(val=val, parent=parent)
+        super().__init__(val=val, parent=parent, field_width=field_width)
 
-    def build(self):
+    def build(self, field_width=None):
         self.layout = QtGui.QHBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.setSpacing(3)
 
         self.fields = []
         for i in range(self.fieldcount):
-            field = self.ftype(**self.fkwargs)
+            field = self.ftype(val=None, **self.fkwargs)
+            if field_width is not None:
+                field.setFixedWidth(field_width)
             self.fields.append(field)
             field.value_changed.connect(self.changed)
             self.layout.addWidget(field)
@@ -63,14 +66,24 @@ class Fieldset(SettingWidget):
         for i, f in enumerate(self.fields):
             f.set_value(v[i])
 
+    def __getitem__(self, item):
+        return self.fields[item]
+
 
 class Text(SettingWidget):
 
-    def build(self):
+    def __init__(self, val, fmt='{}', parent=None, **kwargs):
+        self.fmt = fmt
+        super().__init__(val, parent=parent, **kwargs)
+
+    def build(self, onchange=False):
         self.layout = QtGui.QHBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.textfield = QtGui.QLineEdit()
-        self.textfield.editingFinished.connect(self.changed)
+        if onchange:
+            self.textfield.textChanged.connect(self.changed)
+        else:
+            self.textfield.editingFinished.connect(self.changed)
         self.layout.addWidget(self.textfield)
 
     def value(self):
@@ -79,10 +92,13 @@ class Text(SettingWidget):
     def set_value(self, v, ifempty=False):
         if ifempty and not self.is_empty():
             return
-        self.textfield.setText(str(v))
+        self.textfield.setText(self._format_value(v))
 
     def is_empty(self):
         return str(self.textfield.text()) == ''
+
+    def _format_value(self, v):
+        return self.fmt.format(v)
 
 
 class TextOrNone(Text):
@@ -111,7 +127,8 @@ class Float(TextOrNone):
 
 class MinMax(SettingWidget):
 
-    def __init__(self, vmin=None, vmax=None, fmt='{}', vtype=None, parent=None):
+    def __init__(self, v, fmt='{}', vtype=None, parent=None):
+        vmin, vmax = v
         self.vmin = vmin
         self.vmax = vmax
         self.fmt = fmt
@@ -375,3 +392,55 @@ class Colormap(Dropdown):
     @classmethod
     def list_colormaps(cls):
         return [(name, c) for name, c in cm.__dict__.items() if isinstance(c, colors.Colormap)]
+
+
+class Checkbox(SettingWidget):
+
+    def __init__(self, checked):
+        super().__init__(checked)
+
+    def build(self):
+        self.layout = QtGui.QHBoxLayout(self)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.cb = QtGui.QCheckBox()
+        self.cb.setChecked(False)
+        self.cb.toggled.connect(self.changed)
+        self.layout.addWidget(self.cb)
+
+    def set_value(self, b):
+        self.cb.setChecked(bool(b))
+
+    def value(self):
+        return self.cb.isChecked()
+
+
+class ClickableLabel(QtGui.QLabel):
+
+    clicked = QtCore.pyqtSignal()
+
+    def mousePressEvent(self, QMouseEvent):
+        self.clicked.emit()
+
+
+class ToggleLabel(ClickableLabel):
+
+    toggled = QtCore.pyqtSignal(bool)
+
+    def __init__(self, *args, selected=False, toggle_internal=True, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.set_selected(selected)
+        self.toggle_internal = toggle_internal
+        self.clicked.connect(self.toggle)
+
+    def toggle(self):
+        print('toggled', self)
+        if self.toggle_internal:
+            self.set_selected(not self.selected)
+            self.toggled.emit(self.selected)
+
+    def set_selected(self, b):
+        self.selected = b
+        if b:
+            self.setStyleSheet('''text-decoration: underline''')
+        else:
+            self.setStyleSheet('''''')
