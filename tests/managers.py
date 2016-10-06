@@ -1,5 +1,5 @@
 import unittest
-from .. import datasets, managers
+from easyplot import datasets, managers
 from matplotlib import pyplot as plt
 import numpy as np
 
@@ -114,19 +114,6 @@ class TestAxesManager(unittest.TestCase):
 
         self.m.set_position(.1, .1, .8, .8)
         self.assertEqual(self.m.position, [.1, .1, .8, .8])
-
-    def testRedefine(self):
-        self.create_axmanager()
-        layers = self.m.layers
-        position = self.m.position
-        settings = self.m.settings
-        redef = self.m.redefiner()
-        self.fig.clear()
-        self.ax = self.fig.add_axes([.2, .2, .6, .6])
-        new_m = redef(self.ax)
-        self.assertEqual(layers, new_m.layers)
-        self.assertEqual(settings, new_m.settings)
-        self.assertNotEqual(position, new_m.position)
 
 
 class TestFigManager(unittest.TestCase):

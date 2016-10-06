@@ -1,32 +1,25 @@
+from PyQt4 import QtGui
+from . import gui
 import sys
 
-argv = sys.argv[1:]
-if argv and argv[0] == 'test':
-    from . import tests
-    tests.run()
-else:
-    from PyQt4 import QtGui
-    from . import gui
-    import sys
+from .datasets import interpret_datatype
+import numpy as np
 
-    from .datasets import interpret_datatype
-    import numpy as np
+app = QtGui.QApplication([])
 
-    app = QtGui.QApplication([])
+w = gui.EasyPlotWidget(
+    interpret_datatype(
+        np.arange(10),
+        5*np.random.rand(10)),
+    interpret_datatype(
+        np.arange(10),
+        np.arange(10),
+        np.random.rand(10, 10),
+        np.random.rand(10, 10)))
+w.show()
 
-    w = gui.EasyPlotWidget(
-        interpret_datatype(
-            np.arange(10),
-            5*np.random.rand(10)),
-        interpret_datatype(
-            np.arange(10),
-            np.arange(10),
-            np.random.rand(10, 10),
-            np.random.rand(10, 10)))
-    w.show()
+exit_code = app.exec_()
 
-    exit_code = app.exec_()
+w.deleteLater()
 
-    w.deleteLater()
-
-    sys.exit(exit_code)
+sys.exit(exit_code)

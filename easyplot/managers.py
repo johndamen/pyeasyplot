@@ -106,7 +106,6 @@ class AxesManager(object):
         self.settings = dict()
         self.format(**settings)
 
-        print('defining', layers, settings)
         self.layers = layers or LayersContainer()
 
     def set_position(self, *args):

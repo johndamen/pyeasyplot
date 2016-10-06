@@ -1,5 +1,5 @@
 import unittest
-from .. import datasets
+from easyplot import datasets
 import numpy as np
 
 
