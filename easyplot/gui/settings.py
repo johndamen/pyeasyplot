@@ -91,7 +91,7 @@ class FigureSettings(SettingsWidget):
             QtGui.QMessageBox.warning(self, 'invalid number of axes', 'number of axes larger than 20 not allowed')
             return
 
-        self.figure_manager.set_ax_count(v)
+        self.figure_manager.set_ax_count(v, reset=False)
         self.reload_ax_positions()
         self.changed.emit()
 
@@ -130,8 +130,8 @@ class AxesSettings(SettingsWidget):
         return dict(title=self.ax.get_title(),
                     xlabel=self.ax.get_xlabel(),
                     ylabel=self.ax.get_ylabel(),
-                    xlim=tuple(self.ax.get_xlim()),
-                    ylim=tuple(self.ax.get_ylim()),
+                    xlim=(None, None),
+                    ylim=(None, None),
                     aspect=None)
 
     def build(self):
@@ -173,13 +173,61 @@ class AxesSettings(SettingsWidget):
         return plt.gca()
 
 
+class LayerSettings(SettingsWidget):
+
+    pass
+
+
+class PlotStack(SettingsWidget):
+
+    changed = QtCore.pyqtSignal(dict)
+
+    def __init__(self):
+        super().__init__()
+
+    def build(self):
+        self.layout = QtGui.QVBoxLayout(self)
+        self.stack = QtGui.QStackedWidget()
+        self.layout.addWidget(self.stack)
+
+        w = PlotSettings()
+        self.widgets = dict(default=w)
+        w.changed.connect(self.changed.emit)
+        self.stack.addWidget(self.widgets['default'])
+
+    def for_dataset(self, d):
+        name = d.__class__.__name__
+        if name not in self.widgets:
+            from .plotsettings import get_by_dataset
+            self.widgets[name] = w = get_by_dataset(d)()
+            w.changed.connect(self.changed.emit)
+            self.stack.addWidget(w)
+        self.stack.setCurrentWidget(self.widgets[name])
+
+    @property
+    def fields(self):
+        return self.stack.currentWidget().fields
+
+
 class PlotSettings(SettingsWidget):
+
+    changed = QtCore.pyqtSignal(dict)
 
     def __init__(self, parent=None):
         super().__init__(parent=parent)
 
     def build(self):
-        pass
+        self.layout = QtGui.QFormLayout(self)
+        self.fields = OrderedDict()
+
+    def change(self, *args):
+        data = dict()
+        for k, field in self.fields.items():
+            v = field.value()
+            if v is None:
+                continue
+            data[k] = v
+        self.changed.emit(data)
 
 
 class LegendSettings(SettingsWidget):

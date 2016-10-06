@@ -87,7 +87,7 @@ class Text(SettingWidget):
         self.layout.addWidget(self.textfield)
 
     def value(self):
-        return str(self.textfield.text())
+        return str(self.textfield.text()) or None
 
     def set_value(self, v, ifempty=False):
         if ifempty and not self.is_empty():
@@ -102,6 +102,9 @@ class Text(SettingWidget):
 
 
 class TextOrNone(Text):
+
+    def __init__(self, val=None, **kwargs):
+        super().__init__(val, **kwargs)
 
     def value(self):
         s = str(self.textfield.text())
@@ -127,45 +130,50 @@ class Float(TextOrNone):
 
 class MinMax(SettingWidget):
 
-    def __init__(self, v, fmt='{}', vtype=None, parent=None):
-        vmin, vmax = v
+    def __init__(self, *args, fmt='{}', parent=None):
+        if len(args) == 1:
+            vmin, vmax = args[0]
+        elif len(args) > 2:
+            raise ValueError('invalid number of values')
+        else:
+            vmin, vmax = args
+
         self.vmin = vmin
         self.vmax = vmax
         self.fmt = fmt
-        self.vtype = vtype or vmin.__class__
         super().__init__(parent=parent)
 
     def build(self):
         self.layout = QtGui.QHBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
 
-        vmin_str = self.fmt.format(self.vmin) if self.vmin is not None else ''
-        self.vmin_field = QtGui.QLineEdit(vmin_str)
-        self.vmin_field.editingFinished.connect(self.changed)
+        self.vmin_field = Float(self.vmin)
+        self.vmin_field.value_changed.connect(self.changed)
         self.layout.addWidget(self.vmin_field)
 
-        vmax_str = self.fmt.format(self.vmax) if self.vmax is not None else ''
-        self.vmax_field = QtGui.QLineEdit(vmax_str)
-        self.vmax_field.editingFinished.connect(self.changed)
+        self.vmax_field = Float(self.vmax)
+        self.vmax_field.value_changed.connect(self.changed)
         self.layout.addWidget(self.vmax_field)
 
     def value(self):
-        smin = str(self.vmin_field.text())
-        vmin = self.vtype(smin) if smin else None
-        smax = str(self.vmax_field.text())
-        vmax = self.vtype(smax) if smax else None
-        return vmin, vmax
+        return self.vmin_field.value(), self.vmax_field.value()
 
-    def setValue(self, v, ifempty=False):
-        vmin, vmax = tuple(v)
-        if not ifempty or str(self.vmin_field.text()) == '':
-            self.vmin_field.setText(str(vmin))
+    def setValue(self, *args, ifempty=False):
+        if ifempty and not self.is_empty():
+            return
 
-        if not ifempty or str(self.vmax_field.text()) == '':
-            self.vmax_field.setText(str(vmax))
+        if len(args) == 1:
+            vmin, vmax = args[0]
+        elif len(args) > 2:
+            raise ValueError('invalid number of values')
+        else:
+            vmin, vmax = args
+
+        self.vmin_field.set_value(vmin)
+        self.vmax_field.set_value(vmax)
 
     def isempty(self):
-        return str(self.vmin_field.text()) == '' and str(self.vmax_field.text()) == ''
+        return self.vmin_field.is_empty() and self.vmax_field.is_empty()
 
 
 class ListedSlider(SettingWidget):

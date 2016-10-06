@@ -163,6 +163,10 @@ class Dataset(object):
     def is_increasing(v):
         return v.ndim == 1 and (np.diff(v) > 0).all()
 
+    def __iter__(self):
+        for i, a in enumerate(self.axes):
+            yield self.names[i], a
+
 
 class Timeseries(Dataset):
 

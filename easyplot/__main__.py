@@ -14,8 +14,15 @@ else:
 
     app = QtGui.QApplication([])
 
-    dataset = interpret_datatype(np.arange(10), np.arange(10), np.random.rand(10, 10), np.random.rand(10, 10))
-    w = gui.EasyPlotWidget(dataset)
+    w = gui.EasyPlotWidget(
+        interpret_datatype(
+            np.arange(10),
+            5*np.random.rand(10)),
+        interpret_datatype(
+            np.arange(10),
+            np.arange(10),
+            np.random.rand(10, 10),
+            np.random.rand(10, 10)))
     w.show()
 
     exit_code = app.exec_()

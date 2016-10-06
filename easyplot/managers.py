@@ -26,6 +26,9 @@ class FigureManager(object):
     def current_index(self, val):
         self._current_index = val
 
+    def clear_figure(self):
+        self.fig.clear()
+
     def ax_count(self):
         return len(self.axes)
 
@@ -34,16 +37,17 @@ class FigureManager(object):
 
     def set_ax_count(self, val, reset=True):
         if not reset:
-            definers = [a.redefiner() for a in self.axes]
-            definers += [AxesManager]*(val - len(self.axes))
+            data = [(a.layers, a.settings) for a in self.axes]
+            data += [(None, dict())]*(val - len(self.axes))
         else:
-            definers = [AxesManager]*val
+            data = [(None, dict())]*val
 
         self.axes = []
         self.fig.clear()
         for i in range(val):
             ax = self.fig.add_subplot(self.axrow_count(), ceil(val/self.axrow_count()), i+1)
-            axman = definers[i](ax)
+            layers, settings = data[i]
+            axman = AxesManager(ax, layers=layers, **settings)
             self.axes.append(axman)
 
     def set_axrow_count(self, i, reset=True):
@@ -77,12 +81,13 @@ class FigureManager(object):
         apply style and recreate axes
         :param s: style name from plt.style.available
         """
-        old_data = [(a.position, a.redefiner()) for a in self.axes]
+        old_data = [(a.position, a.layers, a.settings) for a in self.axes]
+        print(old_data)
         self.fig.clear()
         self.axes = []
         plt.style.use(s)
-        for p, d in old_data:
-            self.axes.append(d(self.fig.add_axes(p)))
+        for p, l, s in old_data:
+            self.axes.append(AxesManager(self.fig.add_axes(p), layers=l, **s))
 
     def draw(self):
         self.fig.canvas.draw()
@@ -101,6 +106,7 @@ class AxesManager(object):
         self.settings = dict()
         self.format(**settings)
 
+        print('defining', layers, settings)
         self.layers = layers or LayersContainer()
 
     def set_position(self, *args):
@@ -110,9 +116,6 @@ class AxesManager(object):
             x, y, w, h = args
             pos = [x, y, w, h]
         self.ax.set_position(pos)
-
-    def redefiner(self):
-        return lambda x: AxesManager(x, layers=self.layers, **self.settings)
 
     @property
     def position(self):
@@ -124,9 +127,20 @@ class AxesManager(object):
             self.settings = settings
         else:
             self.settings.update(settings)
-        print('formatting', self)
-        print('    with', settings)
         self.apply_settings()
+
+    def check_limits(self, xlim, ylim):
+        self._check_limit('xlim', *xlim)
+        self._check_limit('ylim', *ylim)
+        self.apply_settings()
+
+    def _check_limit(self, name, vmin, vmax):
+        try:
+            vmin_old, vmax_old = self.settings[name]
+        except KeyError:
+            self.settings[name] = np.array([vmin, vmax])
+        else:
+            self.settings[name] = np.array([min(vmin_old, vmin), max(vmax_old, vmax)])
 
     def apply_settings(self):
         for k, v in self.settings.items():
@@ -138,9 +152,10 @@ class AxesManager(object):
                 setter(v)
 
     def plot(self):
-        print('plotting', self.settings)
+        self.ax.clear()
         self.apply_settings()
         self.ax.hold(True)
+        self.ax.set_prop_cycle(None)
         self.layers.plot(self.ax)
         self.ax.hold(False)
 
@@ -158,20 +173,56 @@ class LayersContainer(list):
             else:
                 self.add(l)
 
+        self._current_index = len(self) - 1
+
+    def __str__(self):
+        indent = ' '*8
+        items = []
+        for item in self:
+            kwargstr = 'dict({})'.format(', '.join('{!s}={!r}'.format(*i) for i in item['kwargs'].items()))
+            items.append('{dataset} {kwargs}'.format(
+                indent=indent,
+                dataset=item['data'],
+                kwargs=kwargstr))
+        return 'Layers([{}])'.format(('\n'+indent).join(items))
+
+    @property
+    def current_index(self):
+        return self._current_index
+    @current_index.setter
+    def current_index(self, val):
+        if not isinstance(val, int):
+            raise TypeError('index must be an integer')
+        if val < 0 or val >= len(self):
+            raise IndexError(val)
+        self._current_index = val
+
+    def gcl(self):
+        return self[self.current_index]
 
     def add(self, d, **kwargs):
         if not isinstance(d, datasets.Dataset):
             raise TypeError('invalid value for dataset')
         kwargs = dict(ChainMap(kwargs, d.PLOT_DEFAULTS))
         self.append(dict(data=d, kwargs=kwargs))
+        self.current_index = len(self) - 1
 
     def edit(self, i, **kwargs):
         self[i]['kwargs'].update(kwargs)
+
+    def edit_current(self, reset=False, **kwargs):
+        if reset:
+            self.gcl()['kwargs'] = kwargs
+        else:
+            self.gcl()['kwargs'].update(kwargs)
+
+        print(self)
 
     def order(self, indices):
         if sorted(list(indices)) != list(range(len(self))):
             raise IndexError('indices not valid, all layers must be included once')
         self[:] = [self[i] for i in indices]
+        self.current_index = len(self) - 1
 
     def delete(self, i):
         del self[i]
